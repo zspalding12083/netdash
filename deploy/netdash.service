@@ -1,0 +1,22 @@
+[Unit]
+Description=Network dashboard (netdash) with modem_check
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+# For a box that also runs modem_check (https://github.com/zspalding12083/modem_check):
+# runs as the user modem_check is installed under, so it can read ~/modem_check/data/modem.db
+# in that private home directory. Sites without a modem use netdash-site.service instead.
+User=YOUR_USER
+WorkingDirectory=/opt/netdash
+# the package lives at /opt/netdash/netdash/
+Environment=PYTHONPATH=/opt/netdash
+# Settings and secrets: /etc/netdash.env, owned by YOUR_USER, chmod 600 (see netdash.env.example)
+EnvironmentFile=/etc/netdash.env
+ExecStart=/usr/bin/python3 -m netdash --db /var/lib/netdash/netdash.db serve --port 9180
+StateDirectory=netdash
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

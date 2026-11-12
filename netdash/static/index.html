@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network</title>
+<link rel="icon" href="/brand/favicon.ico">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f4f1; --surface: #fcfcfb; --border: #e3e2dd;
+  --text: #0b0b0b; --text-2: #52514e; --muted: #8a8984; --grid: #e9e8e3; --track: #eef4fc;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s1-soft: #cde2fb;
+  --good: #1baf7a; --warn: #c98500; --crit: #d03b3b; --band: rgba(208, 59, 59, .10);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111110; --surface: #1a1a19; --border: #2e2e2b;
+    --text: #fff; --text-2: #c3c2b7; --muted: #8a8984; --grid: #2a2a27; --track: #1d2733;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s1-soft: #184f95;
+    --good: #199e70; --warn: #e0a020; --crit: #e66767; --band: rgba(230, 103, 103, .16);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111110; --surface: #1a1a19; --border: #2e2e2b;
+  --text: #fff; --text-2: #c3c2b7; --muted: #8a8984; --grid: #2a2a27; --track: #1d2733;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s1-soft: #184f95;
+  --good: #199e70; --warn: #e0a020; --crit: #e66767; --band: rgba(230, 103, 103, .16);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+       font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 16px;
+       grid-template-columns: 340px minmax(0, 1fr); }
+@media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); } }
+header { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline;
+         justify-content: space-between; }
+header h1 { font-size: 20px; margin: 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+.wide { grid-column: 1 / -1; }
+h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; color: var(--text-2); }
+h3 { font-size: 13px; font-weight: 600; margin: 16px 0 6px; color: var(--text-2); }
+.sub { color: var(--text-2); font-size: 13px; }
+.muted { color: var(--muted); }
+.section-title { grid-column: 1 / -1; font-size: 13px; font-weight: 600; letter-spacing: .04em;
+                 text-transform: uppercase; color: var(--muted); margin: 8px 0 -6px; }
+.pill { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; font-size: 22px; }
+.pill .ic { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+            color: #fff; font-size: 15px; font-weight: 700; }
+.good .ic { background: var(--good); } .warn .ic { background: var(--warn); } .crit .ic { background: var(--crit); }
+.problems { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.tile .label { font-size: 12px; color: var(--text-2); }
+.tile .value { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .value small { font-size: 13px; font-weight: 500; color: var(--text-2); }
+.tile .note { font-size: 12px; color: var(--muted); }
+.note-box { margin-top: 14px; font-size: 12px; color: var(--text-2); border-left: 3px solid var(--border); padding-left: 8px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { background: none; border: 0; padding: 6px 12px; color: var(--text-2); font: inherit;
+              font-size: 13px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: var(--track); color: var(--text); font-weight: 600; }
+.charts { display: grid; gap: 12px; }
+.charts.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 700px) { .charts.two { grid-template-columns: 1fr; } }
+.chart { position: relative; }
+.chart .ttl { font-size: 12px; color: var(--text-2); margin-bottom: 2px; }
+.chart svg { width: 100%; height: 170px; display: block; }
+.chart svg text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border);
+       border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: nowrap; display: none; z-index: 2;
+       box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--text-2); margin: 2px 0 4px; }
+.legend i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.legend i.band { height: 10px; background: var(--band); border: 1px solid var(--crit); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--border);
+         font-variant-numeric: tabular-nums; white-space: nowrap; }
+th:first-child, td:first-child, .l { text-align: left; }
+th { color: var(--text-2); font-weight: 500; position: sticky; top: 0; background: var(--surface); }
+th.sort { cursor: pointer; } th.sort:hover { color: var(--text); }
+.scroll { max-height: 420px; overflow: auto; }
+.flag { color: var(--crit); font-weight: 600; }
+.tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--track); color: var(--text-2); }
+.tag.crit { background: var(--crit); color: #fff; } .tag.warn { background: var(--warn); color: #fff; }
+td.what { text-align: left; white-space: normal; }
+td.addr { white-space: normal; word-break: break-all; min-width: 8em; }
+/* networks: subnet under the name and tighter cells, so long names (EFD: MAINWIREDNETWORK) fit the 340px card */
+.nets th, .nets td { padding: 6px 4px; }
+td.net { white-space: normal; overflow-wrap: anywhere; }
+td.net .muted { display: block; font-size: 12px; }
+.aps { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.ap { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.ap .name { font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.ap .name i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.ap .big { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ap .radio { font-size: 12px; color: var(--text-2); display: flex; justify-content: space-between; gap: 8px; }
+.meter { height: 4px; border-radius: 2px; background: var(--track); margin: 2px 0 6px; overflow: hidden; }
+.meter b { display: block; height: 100%; border-radius: 2px; background: var(--s1); }
+.meter b.warn { background: var(--warn); } .meter b.crit { background: var(--crit); }
+input[type=search] { font: inherit; font-size: 13px; padding: 5px 10px; border: 1px solid var(--border);
+                     border-radius: 8px; background: var(--bg); color: var(--text); min-width: 180px; }
+tr.client { cursor: pointer; } tr.client:hover td { background: var(--track); }
+tr.client.sel td { background: var(--track); font-weight: 600; }
+.sig { display: inline-flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.sig .bar { width: 40px; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.sig .bar b { display: block; height: 100%; background: var(--s1); border-radius: 3px; }
+.sig.weak { color: var(--crit); font-weight: 600; } .sig.weak .bar b { background: var(--crit); }
+#clientPanel[hidden] { display: none; }
+body.no-modem .modem-only, body:not(.no-modem) .gw-only { display: none !important; }
+.who { display: inline-flex; gap: 8px; align-items: center; margin-left: 12px; }
+.who[hidden] { display: none; }
+.who button { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 3px 10px;
+              color: var(--text-2); font: inherit; font-size: 13px; cursor: pointer; }
+.who button:hover { color: var(--text); }
+.err { color: var(--crit); font-size: 13px; }
+.brand { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.brand .logo { height: 36px; width: auto; display: block; }
+.brand .logo[hidden] { display: none; }
+</style>
+<!-- the site's look (NETDASH_BRAND_DIR); empty when there's none -->
+<link rel="stylesheet" href="/brand/brand.css">
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand"><img class="logo" id="logo" alt="" hidden><h1 id="siteName">Network</h1></div>
+    <div class="sub"><span id="updated">Loading…</span>
+      <form class="who" id="who" method="post" action="/logout" hidden><span id="whoName"></span><button type="submit">Log out</button></form></div>
+  </header>
+
+  <div class="section-title">Internet</div>
+  <section class="card">
+    <div id="netPill" class="pill"><span class="ic">…</span><span>Checking</span></div>
+    <ul class="problems" id="problems" hidden></ul>
+    <div class="tiles">
+      <div class="tile modem-only"><div class="label">Download</div><div class="value" id="tDown">–</div><div class="note" id="tSpeedAt"></div></div>
+      <div class="tile modem-only"><div class="label">Upload</div><div class="value" id="tUp">–</div><div class="note">Under 1 Mbps counts as an outage</div></div>
+      <div class="tile modem-only"><div class="label">Ping (google.com)</div><div class="value" id="tPing">–</div><div class="note" id="tPingAt"></div></div>
+      <div class="tile modem-only"><div class="label">Modem</div><div class="value" id="tModem">–</div><div class="note" id="tModemNote"></div></div>
+      <div class="tile modem-only"><div class="label">Uncorrectable codewords, 24 h</div><div class="value" id="tUnc">–</div><div class="note" id="tCorr"></div></div>
+      <div class="tile"><div class="label">Outages in range</div><div class="value" id="tOut">–</div><div class="note" id="tOutNote"></div></div>
+      <div class="tile"><div class="label">Right now through pfSense</div><div class="value" id="tWan">–</div><div class="note" id="tWanNote">WAN download / upload, all devices</div></div>
+      <div class="tile modem-only"><div class="label">pfSense gateway monitor</div><div class="value" id="tGw">–</div><div class="note" id="tGwNote"></div></div>
+    </div>
+    <div class="tiles gw-only" id="gwTiles"></div>
+    <div class="sub gw-only" style="margin-top:12px">Internet health comes from pfSense's gateway monitor, which pings each gateway's monitor IP. If one shows 100% loss while the internet works, set a monitor IP that answers pings (e.g. 1.1.1.1) in System → Routing → Gateways.</div>
+    <div class="note-box modem-only" id="lastNote" hidden></div>
+    <div class="sub modem-only" style="margin-top:12px">Modem readings come from <a id="modemLink" href="https://github.com/zspalding12083/modem_check">modem_check</a> (full report and PDF there).</div>
+  </section>
+
+  <section class="card">
+    <div class="controls">
+      <h2 style="margin:0">History</h2>
+      <div class="seg" id="netRange"><button data-v="day" aria-pressed="true">Day</button><button data-v="week">Week</button><button data-v="month">Month</button><button data-v="all">All</button></div>
+    </div>
+    <div class="legend modem-only"><span><i class="band"></i>Outage (ping losing ≥ 50% or upload under 1 Mbps)</span></div>
+    <div class="legend gw-only"><span><i class="band"></i>Outage (a gateway down or losing ≥ 50%)</span></div>
+    <div class="legend gw-only" id="gwLegend"></div>
+    <div class="charts">
+      <div class="chart modem-only" id="cPing"></div>
+      <div class="charts two modem-only">
+        <div class="chart" id="cDown"></div>
+        <div class="chart" id="cUp"></div>
+      </div>
+      <div class="chart modem-only" id="cSnr"></div>
+      <div class="chart gw-only" id="cGwDelay"></div>
+      <div class="chart gw-only" id="cGwLoss"></div>
+    </div>
+  </section>
+
+  <section class="card wide modem-only">
+    <h2>Modem channels <span class="sub" id="chanAt"></span></h2>
+    <div class="sub" style="margin:-8px 0 8px">Flagged against modem_check's ranges: downstream power −15 to +15 dBmV, SC-QAM SNR ≥ 33 dB, upstream power 35 to 51 dBmV.</div>
+    <div class="charts two">
+      <div class="scroll" style="max-height:300px"><table><thead><tr><th>Downstream</th><th>Freq MHz</th><th>Power dBmV</th><th>SNR/MER dB</th><th>Corrected</th><th>Uncorrectable</th></tr></thead><tbody id="dsRows"></tbody></table></div>
+      <div>
+        <table><thead><tr><th>Upstream</th><th>Freq MHz</th><th>Width MHz</th><th>Power dBmV</th><th>Locked</th></tr></thead><tbody id="usRows"></tbody></table>
+        <h3>Modem log <span class="muted">(logins hidden; modem clock converted to local time)</span></h3>
+        <div class="scroll" style="max-height:200px"><table><tbody id="modemEvents"></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-title">Router &amp; traffic</div>
+  <section class="card">
+    <h2>pfSense <span class="sub" id="pfAt"></span></h2>
+    <div class="err" id="pfErr" hidden></div>
+    <div class="tiles" style="margin-top:0">
+      <div class="tile"><div class="label">CPU</div><div class="value" id="pCpu">–</div><div class="note" id="pLoad"></div></div>
+      <div class="tile"><div class="label">Memory</div><div class="value" id="pMem">–</div><div class="note" id="pDisk"></div></div>
+      <div class="tile"><div class="label">Temperature</div><div class="value" id="pTemp">–</div><div class="note" id="pTempC"></div></div>
+      <div class="tile"><div class="label">Up</div><div class="value" id="pUp">–</div><div class="note" id="pPlat"></div></div>
+    </div>
+    <h3>Networks</h3>
+    <div class="scroll" style="max-height:none"><table class="nets"><thead><tr><th>Network</th><th>↓ Mbps</th><th>↑ Mbps</th><th title="DHCP leases online / total">DHCP</th></tr></thead><tbody id="ifRows"></tbody></table></div>
+    <div class="sub" style="margin-top:6px">↓ is traffic toward that network's devices (on WAN: from the internet). Hover a row for subnet and VLAN.</div>
+  </section>
+
+  <section class="card">
+    <div class="controls">
+      <h2 style="margin:0">Traffic</h2>
+      <div class="seg" id="trRange"><button data-v="day" aria-pressed="true">Day</button><button data-v="week">Week</button><button data-v="month">Month</button><button data-v="all">All</button></div>
+    </div>
+    <h3 style="margin-top:4px">Data transferred <span class="muted" id="xferSince"></span></h3>
+    <table style="margin-bottom:12px"><thead><tr><th>Network</th><th>↓ Down</th><th>↑ Up</th><th>Total</th></tr></thead><tbody id="xferRows"></tbody></table>
+    <div class="charts">
+      <div class="charts two">
+        <div class="chart" id="cWanDown"></div>
+        <div class="chart" id="cWanUp"></div>
+      </div>
+      <div><div class="legend" id="lanLegend"></div><div class="chart" id="cLans"></div></div>
+      <div class="chart" id="cRouter"></div>
+    </div>
+  </section>
+
+  <section class="card wide">
+    <div class="controls">
+      <h2 style="margin:0">Top devices by traffic</h2>
+      <div class="seg" id="hostRange"><button data-v="now">Right now</button><button data-v="day" aria-pressed="true">Day</button><button data-v="week">Week</button><button data-v="month">Month</button><button data-v="all">All</button></div>
+    </div>
+    <div class="sub" style="margin:-2px 0 8px" id="hostNote">From UniFi's per-device counters (wired devices through the UniFi switch, and Wi-Fi). Includes traffic between your own devices, not just the internet.</div>
+    <table><thead id="hostHead"></thead><tbody id="hostRows"></tbody></table>
+  </section>
+
+  <section class="card wide">
+    <div class="controls">
+      <h2 style="margin:0">Firewall blocks</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="seg" id="fwNoise"><button data-v="hide" aria-pressed="true">Hide routine</button><button data-v="all">Show all</button></div>
+        <div class="seg" id="fwRange"><button data-v="1" aria-pressed="true">1 h</button><button data-v="24">24 h</button><button data-v="168">7 days</button></div>
+      </div>
+    </div>
+    <div class="sub" style="margin:-2px 0 8px">From pfSense's firewall log (it keeps only the last few hours; netdash stores 14 days). <b>Routine</b> = devices announcing themselves to the network (mDNS, SSDP, IPv6 multicast) and late packets of connections that already closed; the router drops these by design. Hover a name for its address, MAC and maker.</div>
+    <div class="charts two">
+      <div>
+        <table><thead><tr><th>Interface</th><th>Blocks</th><th title="Not routine">Notable</th><th>Sources</th></tr></thead><tbody id="fwIf"></tbody></table>
+        <h3>Most blocked</h3>
+        <div class="scroll" style="max-height:360px"><table><thead><tr><th>Source</th><th class="l">What</th><th>Blocks</th></tr></thead><tbody id="fwTop"></tbody></table></div>
+      </div>
+      <div>
+        <h3 style="margin-top:0">Latest blocks</h3>
+        <div class="scroll" style="max-height:520px"><table><thead><tr><th>Time</th><th class="l">From → To</th><th class="l">What</th></tr></thead><tbody id="fwRecent"></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-title">Wi-Fi</div>
+  <section class="card wide">
+    <div class="controls">
+      <h2 style="margin:0">Access points <span class="sub" id="wifiAt"></span></h2>
+      <div class="sub" id="wifiCounts"></div>
+    </div>
+    <div class="err" id="wifiErr" hidden></div>
+    <div class="aps" id="aps"></div>
+    <div class="controls" style="margin-top:16px">
+      <div class="ttl sub">Clients per access point</div>
+      <div class="seg" id="wifiRange"><button data-v="day" aria-pressed="true">Day</button><button data-v="week">Week</button><button data-v="month">Month</button></div>
+    </div>
+    <div class="legend" id="apLegend"></div>
+    <div class="chart" id="cAps"></div>
+  </section>
+
+  <section class="card wide">
+    <div class="controls">
+      <h2 style="margin:0">Clients</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="search" id="q" placeholder="Filter by name, IP, MAC, AP">
+        <div class="seg" id="kind"><button data-v="all" aria-pressed="true">All</button><button data-v="wireless">Wi-Fi</button><button data-v="weak">Weak</button><button data-v="wired">Wired</button></div>
+      </div>
+    </div>
+    <div id="clientPanel" hidden>
+      <div class="controls"><b id="cpTitle"></b><span class="sub">Click the row again to close</span></div>
+      <div class="chart" id="cClient"></div>
+    </div>
+    <div class="scroll" style="max-height:560px"><table>
+      <thead><tr>
+        <th class="sort" data-k="name">Name</th><th class="sort l" data-k="ip">IP</th><th class="sort l" data-k="ap_name">AP / switch</th>
+        <th class="sort l" data-k="essid">SSID</th><th class="sort l" data-k="band">Band</th><th class="sort" data-k="signal_dbm">Signal</th>
+        <th class="sort" data-k="rx_rate_mbps">Link Mbps</th><th class="sort" data-k="satisfaction">Experience</th><th class="sort" data-k="uptime_s">Connected</th>
+      </tr></thead>
+      <tbody id="clients"><tr><td colspan="9" class="sub">Loading…</td></tr></tbody>
+    </table></div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const SERIES = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"];
+let S = { summary: null, sort: { k: "signal_dbm", dir: 1 }, kind: "all", q: "", sel: null,
+          netRange: "day", wifiRange: "day", trRange: "day", fwRange: "1", fwNoise: "hide", hostRange: "day" };
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (n, d = 0) => n == null ? "–" : Number(n).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });
+const date = s => new Date(String(s).replace(" ", "T"));
+const fmtTime = d => d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const ago = d => { const m = (Date.now() - d) / 60000;
+  return m < 1 ? "just now" : m < 90 ? `${Math.round(m)} min ago` : m < 2880 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
+const dur = s => s == null ? "–" : s < 3600 ? `${Math.round(s / 60)} min` : s < 172800 ? `${fmt(s / 3600, 0)} h` : `${fmt(s / 86400, 0)} days`;
+const big = n => n == null ? "–" : n >= 1e9 ? fmt(n / 1e9, 1) + "B" : n >= 1e6 ? fmt(n / 1e6, 1) + "M" : n >= 1e4 ? fmt(n / 1e3, 0) + "k" : fmt(n);
+
+async function get(url) {
+  const r = await fetch(url);
+  if (r.status === 401) { location.href = "/login"; throw new Error("login required"); }
+  if (!r.ok) throw new Error(`${url}: ${r.status}`);
+  return r.json();
+}
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function seg(id, key, onChange) {
+  $(id).onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    for (const x of $(id).children) x.setAttribute("aria-pressed", x === b);
+    S[key] = b.dataset.v; onChange();
+  };
+}
+
+// ---- line chart: series [{name, color, pts:[{t,v}]}], bands [{t0,t1}], one y axis ----------
+function niceStep(range) {
+  const raw = range / 4, p = 10 ** Math.floor(Math.log10(raw || 1));
+  return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw) || raw;
+}
+function lineChart(host, { title, series, bands = [], unit = "", yMin = null, yMax = null, t0, t1, digits = 0, height = 170, dots = false }) {
+  host.innerHTML = `<div class="ttl">${esc(title)}</div>`;
+  const svg = el("svg", {}, host), tip = document.createElement("div");
+  tip.className = "tip"; host.appendChild(tip);
+  const W = Math.max(host.clientWidth, 200) || 600, H = height, m = { l: 40, r: 10, t: 8, b: 22 };
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.style.height = H + "px";
+  const all = series.flatMap(s => s.pts.filter(p => p.v != null));
+  if (!all.length) { el("text", { x: W / 2, y: H / 2, "text-anchor": "middle" }, svg).textContent = "No data in this range"; return; }
+  t0 = t0 ?? Math.min(...all.map(p => +p.t)); t1 = t1 ?? Math.max(...all.map(p => +p.t));
+  if (t1 <= t0) t1 = t0 + 3600e3;
+  let lo = yMin ?? Math.min(...all.map(p => p.v)), hi = yMax ?? Math.max(...all.map(p => p.v));
+  if (hi === lo) hi = lo + 1;
+  const step = niceStep(hi - lo);
+  lo = yMin ?? Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  const x = t => m.l + (W - m.l - m.r) * (t - t0) / (t1 - t0);
+  const y = v => H - m.b - (H - m.t - m.b) * (Math.min(Math.max(v, lo), hi) - lo) / (hi - lo);
+  for (const b of bands) {
+    const a = Math.max(x(+b.t0), m.l), z = Math.min(x(+b.t1), W - m.r);
+    if (z >= m.l && a <= W - m.r) el("rect", { x: a, y: m.t, width: Math.max(z - a, 3), height: H - m.t - m.b, fill: "var(--band)" }, svg);
+  }
+  for (let v = lo; v <= hi + 1e-9; v += step) {
+    el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: "var(--grid)" }, svg);
+    el("text", { x: m.l - 6, y: y(v) + 4, "text-anchor": "end" }, svg).textContent = fmt(v, step < 1 ? 1 : 0);
+  }
+  const span = t1 - t0, n = Math.max(2, Math.min(6, Math.floor((W - m.l) / 100)));
+  let last = null;
+  for (let i = 0; i <= n; i++) {
+    const t = new Date(t0 + span * i / n);
+    const lbl = span <= 1.5 * 864e5 ? t.toLocaleTimeString(undefined, { hour: "numeric" })
+                                     : t.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    if (lbl === last) continue; last = lbl;
+    el("text", { x: x(+t), y: H - 6, "text-anchor": i === 0 ? "start" : i === n ? "end" : "middle" }, svg).textContent = lbl;
+  }
+  // Break the line where samples are far apart (poller down), so gaps aren't drawn as data.
+  const gapMs = Math.max(span / 40, 40 * 60e3);
+  for (const s of series) {
+    let d = "", prev = null;
+    for (const p of s.pts) {
+      if (p.v == null) { prev = null; continue; }
+      d += `${prev && p.t - prev.t < gapMs ? "L" : "M"}${x(+p.t).toFixed(1)},${y(p.v).toFixed(1)}`;
+      prev = p;
+    }
+    el("path", { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+    if (dots) for (const p of s.pts) if (p.v != null) el("circle", { cx: x(+p.t), cy: y(p.v), r: 2.5, fill: s.color }, svg);
+  }
+  // hover: crosshair + nearest sample of each series
+  const guide = el("line", { y1: m.t, y2: H - m.b, stroke: "var(--muted)", "stroke-dasharray": "3 3", visibility: "hidden" }, svg);
+  const rings = series.map(s => el("circle", { r: 4, fill: s.color, stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" }, svg));
+  const hit = el("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: "transparent" }, svg);
+  const move = ev => {
+    const r = svg.getBoundingClientRect(), px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    const t = t0 + (px * W / r.width - m.l) / (W - m.l - m.r) * span;
+    const rows = [];
+    let gx = null;
+    series.forEach((s, i) => {
+      let best = null;
+      for (const p of s.pts) if (p.v != null && (!best || Math.abs(p.t - t) < Math.abs(best.t - t))) best = p;
+      if (!best || Math.abs(best.t - t) > gapMs) { rings[i].setAttribute("visibility", "hidden"); return; }
+      gx = x(+best.t);
+      rings[i].setAttribute("cx", gx); rings[i].setAttribute("cy", y(best.v)); rings[i].setAttribute("visibility", "visible");
+      rows.push(`${series.length > 1 ? `<i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${s.color};margin-right:4px"></i>${esc(s.name)}: ` : ""}<b>${fmt(best.v, digits)}${unit}</b>${best.extra ? " · " + esc(best.extra) : ""}`);
+      if (i === 0) rows.unshift(fmtTime(best.t));
+    });
+    const band = bands.find(b => t >= +b.t0 && t <= +b.t1);
+    if (band) rows.push(`<span style="color:var(--crit)">Outage ${fmtTime(band.t0)} – ${fmtTime(band.t1)}</span>`);
+    if (gx == null) { tip.style.display = "none"; guide.setAttribute("visibility", "hidden"); return; }
+    guide.setAttribute("x1", gx); guide.setAttribute("x2", gx); guide.setAttribute("visibility", "visible");
+    tip.innerHTML = rows.join("<br>"); tip.style.display = "block";
+    const left = gx * r.width / W;
+    tip.style.left = Math.min(Math.max(left - tip.offsetWidth / 2, 0), r.width - tip.offsetWidth) + "px";
+    tip.style.top = "14px";
+  };
+  const leave = () => { tip.style.display = "none"; guide.setAttribute("visibility", "hidden"); rings.forEach(c => c.setAttribute("visibility", "hidden")); };
+  hit.addEventListener("mousemove", move); hit.addEventListener("touchstart", move, { passive: true });
+  hit.addEventListener("touchmove", move, { passive: true }); hit.addEventListener("mouseleave", leave);
+}
+
+// ---- Internet ------------------------------------------------------------------------------
+// Sites without a modem: internet health from pfSense's gateway monitor (one or more WANs).
+const gwBad = g => g.status === "down" || (g.loss_pct ?? 0) >= 50;
+const gwWarn = g => !gwBad(g) && ((g.loss_pct ?? 0) > 0 || !["online", "none", ""].includes(g.status || "") || !["none", "", null, undefined].includes(g.substatus));
+function renderGateways(r) {
+  const gws = r.gateways || [];
+  if (!r.enabled || !gws.length) {
+    $("netPill").className = "pill warn"; $("netPill").innerHTML = `<span class="ic">!</span><span>${r.enabled ? "Waiting for pfSense" : "pfSense not configured"}</span>`;
+    $("gwTiles").innerHTML = ""; $("problems").hidden = true; return;
+  }
+  const bad = gws.filter(gwBad), warn = gws.filter(gwWarn);
+  const all = bad.length === gws.length;
+  $("netPill").className = "pill " + (all ? "crit" : bad.length || warn.length ? "warn" : "good");
+  $("netPill").innerHTML = all ? `<span class="ic">✕</span><span>Internet down</span>`
+    : bad.length ? `<span class="ic">!</span><span>${bad.length} of ${gws.length} connections down</span>`
+    : warn.length ? `<span class="ic">!</span><span>Online, with warnings</span>` : `<span class="ic">✓</span><span>Online</span>`;
+  const p = [...bad.map(g => `${g.name} is down (${fmt(g.loss_pct)}% loss to ${g.monitor_ip})`),
+             ...warn.map(g => `${g.name}: ${g.substatus && g.substatus !== "none" ? g.substatus : g.status}, ${fmt(g.delay_ms, 1)} ms, ${fmt(g.loss_pct)}% loss`)];
+  $("problems").hidden = !p.length; $("problems").innerHTML = p.map(x => `<li>${esc(x)}</li>`).join("");
+  $("gwTiles").innerHTML = gws.map(g => `<div class="tile"><div class="label">${esc(g.name)}</div>
+      <div class="value">${gwBad(g) ? `<span class="flag">down</span>` : `${fmt(g.delay_ms, 1)}<small> ms</small>`}<small> · ${fmt(g.loss_pct)}% loss</small></div>
+      <div class="note">pinging ${esc(g.monitor_ip)}${g.stddev_ms ? ` · jitter ${fmt(g.stddev_ms, 1)} ms` : ""}</div></div>`).join("");
+}
+
+function renderInternet(net) {
+  if (!net.modem) return renderGateways(S.summary.router);
+  if (net.error) { $("netPill").className = "pill warn"; $("netPill").innerHTML = `<span class="ic">!</span><span>No modem data</span>`;
+    $("problems").hidden = false; $("problems").innerHTML = `<li>${esc(net.error)}</li>`; return; }
+  if (net.modem_url) $("modemLink").href = net.modem_url;
+  const p = net.problems || [], st = net.status, ping = net.ping, sp = net.speed;
+  const down = p.some(x => /Ping|Upload|status/.test(x));
+  $("netPill").className = "pill " + (down ? "crit" : p.length ? "warn" : "good");
+  $("netPill").innerHTML = down ? `<span class="ic">✕</span><span>Internet problem</span>`
+    : p.length ? `<span class="ic">!</span><span>Online, with warnings</span>` : `<span class="ic">✓</span><span>Online</span>`;
+  $("problems").hidden = !p.length; $("problems").innerHTML = p.map(x => `<li>${esc(x)}</li>`).join("");
+  if (sp) {
+    $("tDown").innerHTML = sp.down_mbps == null ? `<span class="flag">failed</span>` : `${fmt(sp.down_mbps)}<small> Mbps</small>`;
+    $("tUp").innerHTML = sp.up_mbps == null ? `<span class="flag">failed</span>` : `<span class="${sp.up_mbps < 1 ? "flag" : ""}">${fmt(sp.up_mbps, 1)}</span><small> Mbps</small>`;
+    $("tSpeedAt").textContent = `Cloudflare, single connection · ${ago(date(sp.ts))}`;
+  }
+  if (ping) {
+    $("tPing").innerHTML = ping.rtt_avg == null ? `<span class="flag">failed</span>` : `${fmt(ping.rtt_avg)}<small> ms</small>`
+      + (ping.loss_pct ? ` <small class="flag">${fmt(ping.loss_pct)}% lost</small>` : "");
+    $("tPingAt").textContent = `${ping.received}/${ping.sent} replies · ${ago(date(ping.ts))}`;
+  }
+  if (st) {
+    $("tModem").innerHTML = `<span class="${st.cm_status === "Operational" ? "" : "flag"}">${esc(st.cm_status)}</span>`;
+    $("tModemNote").textContent = `${st.hw_model} · ${st.docsis_mode} · up ${dur(st.uptime_s)} · read ${ago(date(st.ts))}`;
+  }
+  const e = net.errors_24h;
+  if (e) { $("tUnc").textContent = big(e.uncorrectable); $("tCorr").textContent = `${big(e.corrected)} corrected · over ${e.polls} polls`; }
+  if (net.note) { $("lastNote").hidden = false; $("lastNote").innerHTML = `<b>Latest note (${fmtTime(date(net.note.ts))}):</b> ${esc(net.note.text)}`; }
+  $("chanAt").textContent = st ? `· ${fmtTime(date(st.ts))}` : "";
+  const fl = (c, f) => c.flags.includes(f) ? "flag" : "";
+  $("dsRows").innerHTML = net.ds.map(c => `<tr><td>${esc(c.kind)} ${c.chid}${c.locked ? "" : ' <span class="tag crit">not locked</span>'}</td><td>${fmt(c.freq_hz / 1e6, 1)}</td><td class="${fl(c, "power")}">${fmt(c.power_dbmv, 1)}</td><td class="${fl(c, "SNR")}">${fmt(c.snr_db, 1)}</td><td>${big(c.corrected)}</td><td>${big(c.uncorrectable)}</td></tr>`).join("");
+  $("usRows").innerHTML = net.us.map(c => `<tr><td>${esc(c.kind)} ${c.chid}</td><td>${fmt(c.freq_hz / 1e6, 1)}</td><td>${fmt(c.width_hz / 1e6, 1)}</td><td class="${fl(c, "power")}">${fmt(c.power_dbmv, 1)}</td><td class="${c.locked ? "" : "flag"}">${c.locked ? "yes" : "NO"}</td></tr>`).join("");
+  $("modemEvents").innerHTML = net.events.map(ev => `<tr><td>${fmtTime(date(ev.ts))}</td><td class="l"><span class="tag ${ev.priority === "critical" ? "crit" : ev.priority === "warning" || ev.priority === "error" ? "warn" : ""}">${esc(ev.priority)}</span></td><td class="what">${esc(ev.text)}</td></tr>`).join("")
+    || `<tr><td class="sub">None</td></tr>`;
+}
+
+async function loadInternetHistory() {
+  const h = await get(`/api/internet?range=${S.netRange}`);
+  if (h.error) return;
+  const days = { day: 1, week: 7, month: 31 }[S.netRange];
+  const t1 = Date.now(), t0 = days ? t1 - days * 864e5 : undefined;
+  const bands = h.outages.map(o => ({ t0: date(o.start), t1: date(o.end) }));
+  $("tOut").textContent = h.outages.length;
+  const mins = h.outages.reduce((a, o) => a + (date(o.end) - date(o.start)) / 60000, 0);
+  $("tOutNote").textContent = h.outages.length ? `at least ${dur(mins * 60)} in total` + (h.outages.some(o => o.ongoing) ? " · one is ongoing" : "")
+    + (h.modem ? "" : ` · ${[...new Set(h.outages.flatMap(o => o.kinds))].join(", ")}`) : "none";
+  const pts = (rows, k, extra) => rows.map(r => ({ t: date(r.ts), v: r[k], extra: extra && extra(r) }));
+  if (!h.modem) {
+    const by = {};
+    for (const r of h.gateways) (by[r.name] ||= []).push(r);
+    const names = Object.keys(by).sort().slice(0, 4);
+    const mk = key => names.map((n, i) => ({ name: n, color: SERIES[i], pts: pts(by[n], key, r => r.status) }));
+    $("gwLegend").innerHTML = names.length > 1 ? names.map((n, i) => `<span><i style="background:${SERIES[i]}"></i>${esc(n)}</span>`).join("") : "";
+    lineChart($("cGwDelay"), { title: "Gateway latency, ms", unit: " ms", t0, t1, bands, yMin: 0, digits: 1, series: mk("delay_ms") });
+    lineChart($("cGwLoss"), { title: "Gateway packet loss, %", unit: "%", t0, t1, bands, yMin: 0, yMax: 100, height: 130, series: mk("loss_pct") });
+    return;
+  }
+  lineChart($("cPing"), { title: "Ping, average ms", unit: " ms", t0, t1, bands, yMin: 0,
+    series: [{ name: "Ping", color: "var(--s1)", pts: pts(h.pings, "rtt_avg", r => r.loss_pct ? `${fmt(r.loss_pct)}% lost` : r.error || "") }] });
+  lineChart($("cDown"), { title: "Download, Mbps", unit: " Mbps", t0, t1, bands, yMin: 0, dots: S.netRange === "day",
+    series: [{ name: "Download", color: "var(--s1)", pts: pts(h.speeds, "down_mbps") }] });
+  lineChart($("cUp"), { title: "Upload, Mbps", unit: " Mbps", t0, t1, bands, yMin: 0, digits: 1, dots: S.netRange === "day",
+    series: [{ name: "Upload", color: "var(--s1)", pts: pts(h.speeds, "up_mbps", r => r.error || "") }] });
+  lineChart($("cSnr"), { title: "Worst downstream SNR, dB (SC-QAM; below 33 is out of range)", unit: " dB", t0, t1, bands, digits: 1, height: 130, yMin: 30, yMax: 45,
+    series: [{ name: "SNR", color: "var(--s1)", pts: pts(h.channels, "snr_min", r => r.ds_unlocked ? `${r.ds_unlocked} channels unlocked` : "") }] });
+}
+
+// ---- Router & traffic -------------------------------------------------------------------------
+const mbps = b => b == null ? "–" : b >= 10e6 ? fmt(b / 1e6) : fmt(b / 1e6, 1);
+function renderRouter(r, net) {
+  $("pfErr").hidden = !(r.error || !r.enabled);
+  $("pfErr").textContent = !r.enabled ? "pfSense isn't configured: set NETDASH_PFSENSE_URL and NETDASH_PFSENSE_KEY in /etc/netdash.env."
+    : r.error ? `Last pfSense poll failed: ${r.error}` : "";
+  $("pfAt").textContent = r.ts ? `· ${ago(date(r.ts))}` : "";
+  const sy = r.system;
+  if (sy) {
+    $("pCpu").innerHTML = `${fmt(sy.cpu_pct)}<small>%</small>`; $("pLoad").textContent = sy.load ? `load ${sy.load.map(x => fmt(x, 2)).join(" / ")} · ${sy.cpus} cores` : "";
+    $("pMem").innerHTML = `${fmt(sy.mem_pct)}<small>%</small>`; $("pDisk").textContent = `disk ${fmt(sy.disk_pct)}%`;
+    const tf = sy.temp_f ?? (sy.temp_c == null ? null : sy.temp_c * 9 / 5 + 32);
+    $("pTemp").innerHTML = `${fmt(tf)}<small> °F</small>`; $("pTempC").textContent = sy.temp_c == null ? "" : `${fmt(sy.temp_c)} °C`;
+    $("pUp").textContent = (sy.uptime || "").replace(/ Hours.*/, " h").replace(" Days ", " d ").replace(" Day ", " d ");
+    $("pPlat").textContent = sy.platform || "";
+  }
+  const shown = r.interfaces.filter(i => i.up);
+  $("ifRows").innerHTML = shown.map(i => `<tr title="${esc(i.hwif)}${i.vlan ? " · VLAN " + i.vlan : ""} · ${esc(i.network || "")}">
+    <td class="net">${esc(i.name)} <span class="muted">${esc(i.network || "")}</span></td>
+    <td>${mbps(i.wan ? i.in_bps : i.out_bps)}</td><td>${mbps(i.wan ? i.out_bps : i.in_bps)}</td>
+    <td>${i.leases ? `${i.leases_online}/${i.leases}` : ""}</td></tr>`).join("")
+    || `<tr><td colspan="4" class="sub">${r.enabled ? "Waiting for the first pfSense poll" : ""}</td></tr>`;
+  const wans = r.interfaces.filter(i => i.wan && i.in_bps != null);
+  const sum = k => wans.reduce((a, i) => a + i[k], 0);
+  $("tWan").innerHTML = wans.length ? `${mbps(sum("in_bps"))}<small> / ${mbps(sum("out_bps"))} Mbps</small>` : "–";
+  $("tWanNote").textContent = `${wans.length > 1 ? wans.map(i => i.name).join(" + ") : "WAN"} download / upload, all devices`;
+  const g = r.gateways[0];
+  if (g) {
+    const pingOk = net && net.ping && (net.ping.loss_pct ?? 100) < 50;
+    const bogus = g.loss_pct >= 100 && pingOk;   // the monitor IP ignores pings; the line itself is fine
+    $("tGw").innerHTML = bogus ? `<span class="muted">no replies</span>`
+      : g.status === "online" || g.status === "none" ? `${fmt(g.delay_ms, 1)}<small> ms · ${fmt(g.loss_pct)}% loss</small>`
+      : `<span class="flag">${esc(g.status)}</span><small> ${fmt(g.loss_pct)}% loss</small>`;
+    $("tGwNote").textContent = bogus ? `${g.monitor_ip} doesn't answer pings, so pfSense calls WAN "down" although it works. Set a monitor IP (e.g. 1.1.1.1) in System → Routing → Gateways.`
+      : `${g.name}, pinging ${g.monitor_ip}`;
+  }
+}
+
+async function loadRouterHistory() {
+  const h = await get(`/api/router?range=${S.trRange}`);
+  loadTransfer().catch(console.error);
+  const days = { day: 1, week: 7, month: 31 }[S.trRange], t1 = Date.now(), t0 = days ? t1 - days * 864e5 : undefined;
+  // Long ranges: average into buckets so the lines stay readable (30 s samples).
+  const bucket = !days ? 3 * 3600e3 : days > 1 ? (days > 7 ? 3600e3 : 900e3) : 0;
+  const series = (rows, key) => {
+    if (!bucket) return rows.map(r => ({ t: date(r.ts), v: r[key] == null ? null : r[key] / 1e6 }));
+    const m = new Map();
+    for (const r of rows) { if (r[key] == null) continue; const b = Math.floor(date(r.ts) / bucket) * bucket;
+      const a = m.get(b) || [0, 0]; a[0] += r[key]; a[1]++; m.set(b, a); }
+    return [...m].map(([b, [s, n]]) => ({ t: new Date(b + bucket / 2), v: s / n / 1e6 }));
+  };
+  const by = {};
+  for (const r of h.interfaces) (by[r.iface] ||= []).push(r);
+  const wans = wanNames().filter(k => by[k]).slice(0, 4);
+  const wanSeries = key => wans.map((k, i) => ({ name: k, color: wans.length > 1 ? SERIES[i] : "var(--s1)", pts: series(by[k], key) }));
+  const label = wans.length > 1 ? "Internet" : "WAN", avg = bucket ? " (averaged)" : "";
+  lineChart($("cWanDown"), { title: `${label} download, Mbps${avg}`, unit: " Mbps", t0, t1, yMin: 0, digits: 1, series: wanSeries("in_bps") });
+  lineChart($("cWanUp"), { title: `${label} upload, Mbps${avg}`, unit: " Mbps", t0, t1, yMin: 0, digits: 1, series: wanSeries("out_bps") });
+  // Busiest inside networks, by total traffic toward them; at most four, in fixed colour order by name.
+  const lans = Object.keys(by).filter(k => !wanNames().includes(k))
+    .map(k => [k, by[k].reduce((a, r) => a + (r.out_bps || 0), 0)]).filter(([, t]) => t > 0)
+    .sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => k).sort();
+  const lanSeries = lans.map((k, i) => ({ name: k, color: SERIES[i], pts: series(by[k], "out_bps") }));
+  $("lanLegend").innerHTML = lanSeries.map(s => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("");
+  lineChart($("cLans"), { title: "Download by network, Mbps", unit: " Mbps", t0, t1, yMin: 0, digits: 1, series: lanSeries });
+  lineChart($("cRouter"), { title: "pfSense CPU, %", unit: "%", t0, t1, yMin: 0, yMax: 100, height: 120,
+    series: [{ name: "CPU", color: "var(--s1)", pts: h.router.map(r => ({ t: date(r.ts), v: r.cpu_pct, extra: r.temp_c != null ? `${fmt(r.temp_c * 9 / 5 + 32)} °F` : "" })) }] });
+}
+
+const wanNames = () => S.summary?.router?.wans?.length ? S.summary.router.wans : ["WAN"];
+const gb = b => b == null ? "–" : b >= 1e12 ? fmt(b / 1e12, 2) + " TB" : b >= 1e9 ? fmt(b / 1e9, b >= 1e11 ? 0 : 1) + " GB" : fmt(b / 1e6) + " MB";
+async function loadTransfer() {
+  const x = await get(`/api/transfer?range=${S.trRange}`);
+  const rows = Object.entries(x.totals).map(([k, v]) => {
+    // WAN: in = from the internet. Inside networks: out of the router = toward the devices.
+    const w = wanNames().includes(k);
+    const down = w ? v.in_bytes : v.out_bytes, up = w ? v.out_bytes : v.in_bytes;
+    return { k, w, down, up, since: v.since };
+  }).filter(r => r.down + r.up > 0).sort((a, b) => b.w - a.w || b.down + b.up - (a.down + a.up));
+  $("xferRows").innerHTML = rows.map(r => `<tr><td>${r.w ? `<b>${esc(r.k)} (internet)</b>` : esc(r.k)}</td><td>${gb(r.down)}</td><td>${gb(r.up)}</td><td>${gb(r.down + r.up)}</td></tr>`).join("")
+    || `<tr><td colspan="4" class="sub">No traffic recorded yet</td></tr>`;
+  const first = rows.map(r => r.since).sort()[0];
+  const tracked = first && (!x.since || date(first) - date(x.since) > 600e3);
+  $("xferSince").textContent = tracked ? `(measured since ${fmtTime(date(first))}, when netdash started tracking)` : "";
+}
+
+async function loadHosts() {
+  const h = await get(`/api/hosts?range=${S.hostRange}`);
+  const dev = r => `<b>${esc(r.name || r.mac)}</b><br><span class="muted">${esc([r.ip, r.network, r.wired ? "wired" : (r.ap || r.ap_name)].filter(Boolean).join(" · "))}</span>`;
+  if (h.now) {
+    $("hostHead").innerHTML = `<tr><th>Device</th><th>↓ Mbps</th><th>↑ Mbps</th></tr>`;
+    $("hostRows").innerHTML = h.hosts.map(r => `<tr><td title="${esc(r.mac)}${r.vendor ? " · " + esc(r.vendor) : ""}">${dev(r)}</td><td>${mbps(r.down_bps)}</td><td>${mbps(r.up_bps)}</td></tr>`).join("")
+      || `<tr><td colspan="3" class="sub">Waiting for UniFi</td></tr>`;
+    return;
+  }
+  $("hostHead").innerHTML = `<tr><th>Device</th><th>↓ Down</th><th>↑ Up</th><th>Total</th></tr>`;
+  const max = Math.max(1, ...h.hosts.map(r => r.down + r.up));
+  $("hostRows").innerHTML = h.hosts.map((r, i) => `<tr><td title="${esc(r.mac)}"><span class="muted">${i + 1}.</span> ${dev(r)}</td><td>${gb(r.down)}</td><td>${gb(r.up)}</td>
+      <td>${gb(r.down + r.up)}<div class="meter" style="margin:4px 0 0 auto;width:80px"><b style="width:${(r.down + r.up) / max * 100}%"></b></div></td></tr>`).join("")
+    || `<tr><td colspan="4" class="sub">Nothing recorded yet: per-device totals start a minute after netdash starts.</td></tr>`;
+  if (h.tracking_since) $("hostNote").textContent = `From UniFi's per-device counters (wired devices through the UniFi switch, and Wi-Fi), recorded since ${fmtTime(new Date(h.tracking_since + ":00"))}. Includes traffic between your own devices, not just the internet.`;
+}
+
+async function loadFirewall() {
+  const f = await get(`/api/firewall?hours=${S.fwRange}&noise=${S.fwNoise}`);
+  // A device/host name with the raw address underneath; tooltip has MAC, maker, network.
+  const who = (ip, info, port) => {
+    const i = info || {}, tip = [ip, i.mac, i.vendor, i.network].filter(Boolean).join(" · ");
+    const nm = i.name ? `<b>${esc(i.name)}</b><br>` : "";
+    const sub = i.name ? `<span class="muted">${esc(ip)}${port ? ":" + port : ""}${i.vendor && !i.name.includes(i.vendor) ? " · " + esc(i.vendor) : ""}</span>`
+      : `${esc(ip)}${port ? `<span class="muted">:${port}</span>` : ""}${i.vendor ? `<br><span class="muted">${esc(i.vendor)}</span>` : ""}`;
+    return `<span title="${esc(tip)}">${nm}${sub}</span>`;
+  };
+  const tag = r => r.noise ? `<span class="tag">routine</span> ` : "";
+  $("fwIf").innerHTML = f.per_iface.map(r => `<tr><td>${esc(r.iface)}</td><td>${fmt(r.blocks)}</td><td>${fmt(r.notable)}</td><td>${fmt(r.sources)}</td></tr>`).join("")
+    || `<tr><td colspan="4" class="sub">No blocks logged in this range</td></tr>`;
+  $("fwTop").innerHTML = f.top.map(r => `<tr><td class="addr" title="last ${fmtTime(date(r.last))}">${who(r.src, r.src_info)}<br><span class="muted">on ${esc(r.iface)}</span></td>
+      <td class="what">${tag(r)}${esc(r.what || "")}<br><span class="muted">${esc(r.proto || "")}${r.dport ? " " + r.dport : ""} → ${r.dsts > 1 ? r.dsts + " destinations" : esc(r.dst_info?.name || r.dst || "")}</span></td>
+      <td>${fmt(r.blocks)}</td></tr>`).join("") || `<tr><td colspan="3" class="sub">Nothing ${S.fwNoise === "hide" ? "notable " : ""}in this range</td></tr>`;
+  $("fwRecent").innerHTML = f.recent.map(r => `<tr><td>${date(r.ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" })}<br><span class="muted">${esc(r.iface)}</span></td>
+      <td class="addr l">${who(r.src, r.src_info, r.sport)}<br>→ ${who(r.dst, r.dst_info, r.dport)}</td>
+      <td class="what">${tag(r)}${esc(r.what || "")}${r.rule_name ? `<br><span class="muted">rule: ${esc(r.rule_name)}</span>` : r.rule ? `<br><span class="muted" title="Add the firewall rules privilege to show rule names">rule ${esc(r.rule)}</span>` : ""}</td></tr>`).join("")
+    || `<tr><td colspan="3" class="sub">Nothing ${S.fwNoise === "hide" ? "notable " : ""}logged</td></tr>`;
+}
+
+// ---- Wi-Fi -----------------------------------------------------------------------------------
+function apColors(devices) {
+  const m = {};
+  devices.filter(d => d.type === "uap").forEach((d, i) => m[d.mac] = SERIES[i] || "var(--muted)");
+  return m;
+}
+function renderWifi(w) {
+  $("wifiErr").hidden = !(w.error || !w.enabled);
+  $("wifiErr").textContent = !w.enabled ? "UniFi isn't configured: set NETDASH_UNIFI_USER and NETDASH_UNIFI_PASS in /etc/netdash.env."
+    : w.error ? `Last UniFi poll failed: ${w.error}` : "";
+  $("wifiAt").textContent = w.ts ? `· ${ago(date(w.ts))}` : "";
+  const c = w.counts;
+  $("wifiCounts").textContent = w.ts ? `${c.wireless} on Wi-Fi · ${c.clients - c.wireless} wired · ${c.weak} weak (below ${w.weak_dbm} dBm) · ${c.aps_online}/${c.aps} APs up` : "";
+  const colors = apColors(w.devices);
+  $("aps").innerHTML = w.devices.map(d => {
+    const radios = d.radios.map(r => {
+      const u = r.util_pct ?? 0;
+      return `<div class="radio"><span>${esc(r.band)} · ch ${esc(r.channel)} · ${r.clients ?? 0} clients</span><span>${r.util_pct == null ? "" : u + "% busy"}</span></div>`
+        + (r.util_pct == null ? "" : `<div class="meter"><b class="${u >= 70 ? "crit" : u >= 50 ? "warn" : ""}" style="width:${Math.min(u, 100)}%"></b></div>`);
+    }).join("");
+    const weak = w.clients.filter(x => x.ap_mac === d.mac && !x.wired && x.signal_dbm < w.weak_dbm).length;
+    return `<div class="ap"><div class="name">${d.type === "uap" ? `<i style="background:${colors[d.mac]}"></i>` : ""}${esc(d.name)}
+        ${d.online ? "" : '<span class="tag crit">offline</span>'}</div>
+      <div class="sub">${esc(d.model)} · ${esc(d.version)} · up ${dur(d.uptime_s)}</div>
+      <div><span class="big">${d.clients ?? 0}</span> <span class="sub">clients${weak ? ` · <span class="flag">${weak} weak</span>` : ""}${d.satisfaction != null && d.satisfaction >= 0 ? ` · experience ${d.satisfaction}%` : ""}</span></div>
+      ${radios}</div>`;
+  }).join("");
+  renderClients();
+}
+
+function renderClients() {
+  const w = S.summary?.wifi; if (!w) return;
+  const q = S.q.toLowerCase(), { k, dir } = S.sort;
+  let rows = w.clients.filter(c =>
+    (S.kind === "all" || (S.kind === "wired" ? c.wired : !c.wired)) &&
+    (S.kind !== "weak" || c.signal_dbm < w.weak_dbm) &&
+    (!q || [c.name, c.hostname, c.ip, c.mac, c.ap_name, c.essid, c.network].some(v => String(v ?? "").toLowerCase().includes(q))));
+  rows.sort((a, b) => { const x = a[k], y = b[k];
+    return x == null ? 1 : y == null ? -1 : (typeof x === "string" ? x.localeCompare(y) : x - y) * dir; });
+  $("clients").innerHTML = rows.map(c => {
+    const s = c.signal_dbm, pct = s == null ? 0 : Math.max(0, Math.min(100, (s + 95) / 50 * 100));
+    return `<tr class="client${S.sel === c.mac ? " sel" : ""}" data-mac="${esc(c.mac)}" title="${esc(c.mac)}${c.hostname ? " · " + esc(c.hostname) : ""}">
+      <td>${esc(c.name)}</td><td class="l">${esc(c.ip)}</td><td class="l">${esc(c.ap_name)}</td>
+      <td class="l">${esc(c.essid ?? (c.wired ? "wired" : ""))}</td><td class="l">${esc(c.band ?? "")}${c.channel ? ` <span class="muted">ch ${c.channel}</span>` : ""}</td>
+      <td>${s == null ? "" : `<span class="sig${s < w.weak_dbm ? " weak" : ""}">${s} dBm<span class="bar"><b style="width:${pct}%"></b></span></span>`}</td>
+      <td>${c.rx_rate_mbps == null ? "" : `${c.rx_rate_mbps}/${c.tx_rate_mbps}`}</td>
+      <td>${c.satisfaction == null || c.satisfaction < 0 ? "" : c.satisfaction + "%"}</td><td>${dur(c.uptime_s)}</td></tr>`;
+  }).join("") || `<tr><td colspan="9" class="sub">${w.ts ? "No clients match" : "Waiting for the first UniFi poll"}</td></tr>`;
+}
+
+async function loadWifiHistory() {
+  const w = S.summary?.wifi; if (!w) return;
+  const h = await get(`/api/wifi?range=${S.wifiRange}`);
+  const colors = apColors(w.devices), byAp = {};
+  for (const r of h.aps) (byAp[r.ap_mac] ||= []).push({ t: date(r.ts), v: r.clients, extra: r.util_pct != null ? `busiest radio ${r.util_pct}% busy` : "" });
+  const series = Object.keys(colors).filter(m => byAp[m]).map(m => ({ name: h.names[m] || m, color: colors[m], pts: byAp[m] }));
+  $("apLegend").innerHTML = series.map(s => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("");
+  const days = { day: 1, week: 7, month: 31 }[S.wifiRange];
+  lineChart($("cAps"), { title: "", unit: " clients", series, yMin: 0, t0: Date.now() - days * 864e5, t1: Date.now() });
+}
+
+async function loadClient(mac) {
+  const w = S.summary.wifi, c = w.clients.find(x => x.mac === mac);
+  $("clientPanel").hidden = false;
+  $("cpTitle").textContent = `${c ? c.name : mac}: signal over the last week`;
+  const h = await get(`/api/client?mac=${encodeURIComponent(mac)}&range=week`);
+  lineChart($("cClient"), { title: `dBm (weak below ${w.weak_dbm})`, unit: " dBm", t0: Date.now() - 7 * 864e5, t1: Date.now(),
+    series: [{ name: "Signal", color: "var(--s1)", pts: h.samples.map(r => ({ t: date(r.ts), v: r.signal_dbm,
+      extra: `${h.names[r.ap_mac] || r.ap_mac || ""} · ${r.band || ""} ch ${r.channel ?? ""}` })) }] });
+}
+
+$("clients").onclick = e => {
+  const tr = e.target.closest("tr.client"); if (!tr) return;
+  S.sel = S.sel === tr.dataset.mac ? null : tr.dataset.mac;
+  if (S.sel) loadClient(S.sel); else $("clientPanel").hidden = true;
+  renderClients();
+};
+document.querySelector("#clients").closest("table").querySelector("thead").onclick = e => {
+  const th = e.target.closest("th.sort"); if (!th) return;
+  S.sort = { k: th.dataset.k, dir: S.sort.k === th.dataset.k ? -S.sort.dir : 1 }; renderClients();
+};
+$("q").oninput = e => { S.q = e.target.value; renderClients(); };
+seg("kind", "kind", renderClients);
+seg("netRange", "netRange", loadInternetHistory);
+seg("wifiRange", "wifiRange", loadWifiHistory);
+seg("trRange", "trRange", loadRouterHistory);
+seg("fwRange", "fwRange", loadFirewall);
+seg("fwNoise", "fwNoise", loadFirewall);
+seg("hostRange", "hostRange", loadHosts);
+
+async function refresh() {
+  try {
+    const s = S.summary = await get("/api/summary");
+    $("updated").textContent = `Updated ${fmtTime(date(s.generated))}`;
+    $("siteName").textContent = s.site; document.title = s.site;
+    $("who").hidden = !s.auth; $("whoName").textContent = s.user ? `Signed in as ${s.user}` : "";
+    document.body.classList.toggle("no-modem", !s.internet.modem);
+    renderInternet(s.internet);
+    renderWifi(s.wifi);
+    renderRouter(s.router, s.internet);
+  } catch (e) { $("updated").textContent = `Can't reach the dashboard server (${e.message})`; }
+}
+async function refreshAll() {
+  await refresh();
+  loadInternetHistory().catch(console.error);
+  loadWifiHistory().catch(console.error);
+  loadRouterHistory().catch(console.error);
+  loadFirewall().catch(console.error);
+  loadHosts().catch(console.error);
+}
+get("/api/site").then(s => { if (s.logo) { $("logo").src = s.logo; $("logo").hidden = false; } }).catch(() => {});
+refreshAll();
+setInterval(refresh, 60e3);              // live numbers every minute
+setInterval(() => { loadInternetHistory(); loadWifiHistory(); loadRouterHistory(); loadFirewall(); loadHosts(); if (S.sel) loadClient(S.sel); }, 5 * 60e3);
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { loadInternetHistory(); loadWifiHistory(); loadRouterHistory(); }, 200); });
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+[Unit]
+Description=Network dashboard (netdash)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Sites without a modem: a dedicated system user (sudo useradd --system --home /var/lib/netdash netdash).
+# Home runs as spalding instead (deploy/netdash.service) only to read modem_check's database.
+User=netdash
+WorkingDirectory=/opt/netdash
+Environment=PYTHONPATH=/opt/netdash
+# Settings and secrets: /etc/netdash.env, owned by netdash, chmod 600 (see netdash-site.env.example)
+EnvironmentFile=/etc/netdash.env
+ExecStart=/usr/bin/python3 -m netdash --db /var/lib/netdash/netdash.db serve --port 9180
+StateDirectory=netdash
+Restart=always
+RestartSec=5
+# Hardening: it only reads the network and writes its own database
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/netdash
+
+[Install]
+WantedBy=multi-user.target
