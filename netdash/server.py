@@ -461,7 +461,7 @@ def serve(store, bind, port, env=os.environ):
     else:
         log.info("logins: off (anyone who can reach the port sees the dashboard)")
     log.info("UniFi: %s", f"{app.unifi.url}{' (classic controller)' if app.unifi.classic else ''} "
-                          f"as {app.unifi.user or 'API key'}" if app.unifi.enabled
+                          f"as {app.unifi.user or 'API key'}, {app.unifi.tls_mode}" if app.unifi.enabled
              else "off (set NETDASH_UNIFI_USER/NETDASH_UNIFI_PASS in /etc/netdash.env)")
     try:
         httpd = Server((bind, port), make_handler(app, tls=bool(cert)))
@@ -474,7 +474,7 @@ def serve(store, bind, port, env=os.environ):
     except OSError as e:
         raise SystemExit(f"can't listen on port {port}: {e.strerror}. "
                          f"Find what's using it with `sudo ss -ltnp | grep :{port}` or pick another with --port.")
-    log.info("pfSense: %s", app.pf.url if app.pf.enabled
+    log.info("pfSense: %s", f"{app.pf.url}, {app.pf.tls_mode}" if app.pf.enabled
              else "off (set NETDASH_PFSENSE_URL/NETDASH_PFSENSE_KEY in /etc/netdash.env)")
     if app.unifi.enabled:
         app.run_poller()

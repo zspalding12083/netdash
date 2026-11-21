@@ -1,10 +1,11 @@
-"""python3 -m netdash {serve,user,unifi,pfsense,modem} ..."""
+"""python3 -m netdash {serve,user,unifi,pfsense,modem,fingerprint} ..."""
 import argparse
 import getpass
 import json
 import logging
+import os
 
-from . import auth, modem, pfsense, server, unifi
+from . import auth, modem, pfsense, server, tlsverify, unifi
 from .store import Store
 
 
@@ -22,6 +23,9 @@ def main(argv=None):
     sub.add_parser("unifi", help="test the UniFi login; list APs and weak clients")
     sub.add_parser("modem", help="show the latest modem_check readings")
     sub.add_parser("pfsense", help="test the pfSense API key; show router health, gateways and interfaces")
+    fp = sub.add_parser("fingerprint", help="show the certificate fingerprints to pin (default: the pfSense and "
+                                            "UniFi URLs from the environment)")
+    fp.add_argument("url", nargs="*")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
@@ -60,12 +64,34 @@ def main(argv=None):
         fw = pf.firewall_log(200)
         print(f"firewall log: {len(fw)} of the newest 200 lines parsed, "
               f"{sum(1 for e in fw if e['action'] == 'block')} blocks")
+    elif a.cmd == "fingerprint":
+        show_fingerprints(a.url)
     elif a.cmd == "modem":
         m = modem.ModemDB()
         if not m.enabled:
             raise SystemExit(f"modem_check database not found at {m.path} (set NETDASH_MODEM_DB)")
         s = m.summary()
         print(json.dumps({k: s[k] for k in ("status", "ping", "speed", "errors_24h", "problems")}, indent=1))
+
+
+def show_fingerprints(urls):
+    """Print NETDASH_*_FINGERPRINT lines for the certificates the servers present now.
+    Compare each with the fingerprint the device itself shows before pinning it."""
+    targets = [(None, u) for u in urls] or [
+        (src, os.environ.get(f"NETDASH_{src}_URL") or default)
+        for src, default in (("PFSENSE", None), ("UNIFI", "https://127.0.0.1:12443"))]
+    for src, url in targets:
+        if not url:
+            continue
+        try:
+            fp = tlsverify.fetch_fingerprint(url)
+        except (OSError, ValueError) as e:
+            print(f"# {url}: {e}")
+            continue
+        print(f"# {url}")
+        print(f"NETDASH_{src}_FINGERPRINT={fp}" if src else fp)
+    print("# Check each against the device before trusting it: pfSense shows its certificate under\n"
+          "# System > Certificates; a browser shows it in the padlock's certificate details.")
 
 
 def manage_users(store, action, name):

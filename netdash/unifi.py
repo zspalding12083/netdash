@@ -9,15 +9,17 @@ Settings (/etc/netdash.env):
     NETDASH_UNIFI_SITE      default "default"
     NETDASH_UNIFI_KIND      "unifios" (default: UniFi OS console or UniFi OS Server) or
                             "classic" (the self-hosted Network application, usually port 8443)
+    NETDASH_UNIFI_FINGERPRINT / _CA / _TLS_VERIFY   certificate checking, see tlsverify.py
 """
 import http.cookiejar
 import json
 import os
-import ssl
 import threading
 import time
 import urllib.error
 import urllib.request
+
+from . import tlsverify
 
 WEAK_DBM = -80          # below this, low-power IoT clients get unreliable
 LOGIN_BACKOFF = 15 * 60  # seconds before retrying a rejected login
@@ -32,11 +34,10 @@ class UniFi:
         self.site = env.get("NETDASH_UNIFI_SITE") or "default"
         # Classic controllers have no /proxy/network prefix and log in at /api/login.
         self.classic = (env.get("NETDASH_UNIFI_KIND") or "unifios").lower() == "classic"
-        # The controller has a self-signed certificate.
-        self.ctx = ssl._create_unverified_context()
+        # Controllers usually have self-signed certificates: pin them (tlsverify.py).
+        https, self.tls_mode = tlsverify.https_handler(env, "UNIFI", "UniFi")
         self.jar = http.cookiejar.CookieJar()
-        self.opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=self.ctx),
-                                                  urllib.request.HTTPCookieProcessor(self.jar))
+        self.opener = urllib.request.build_opener(https, urllib.request.HTTPCookieProcessor(self.jar))
         self.csrf = None
         self._lock = threading.Lock()
         self._login_blocked_until, self._login_error = 0.0, None
@@ -55,7 +56,13 @@ class UniFi:
             headers["X-CSRF-Token"] = self.csrf
         req = urllib.request.Request(self.url + path, headers=headers,
                                      data=json.dumps(body).encode() if body is not None else None)
-        with self.opener.open(req, timeout=timeout) as r:
+        try:
+            r = self.opener.open(req, timeout=timeout)
+        except urllib.error.HTTPError:
+            raise
+        except urllib.error.URLError as e:
+            raise tlsverify.explain(e, "UNIFI") from e
+        with r:
             self.csrf = r.headers.get("X-CSRF-Token") or r.headers.get("X-Updated-Csrf-Token") or self.csrf
             return json.load(r)
 

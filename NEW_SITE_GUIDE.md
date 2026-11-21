@@ -163,6 +163,24 @@ v2.10.2 was used for the original install. The API key goes in the `X-API-Key` h
   - Put `PI=user@host`, and `URL=https://host:9180` if the site uses HTTPS, in `deploy/local.env` (git-ignored), or pass them on the command line.
 - The project folder is the source of truth (a git repo). The box is only ever updated from it.
 
+### Certificate checking (pfSense and UniFi)
+
+netdash checks the certificate of every HTTPS connection it makes. Without a
+setting it uses the system's trusted CAs, which reject the self-signed certificates
+routers and controllers usually have, so each source needs one of:
+
+- **A pinned fingerprint** (usual for self-signed). On the dashboard box, run
+  `python3 -m netdash fingerprint`. It prints `NETDASH_PFSENSE_FINGERPRINT=...` and
+  `NETDASH_UNIFI_FINGERPRINT=...` for the URLs in the environment.
+  - **Check each one before trusting it.** In pfSense, look under **System → Certificates**. For either device, a browser shows the fingerprint in the padlock's certificate details. Or run the same command from a second machine and compare: matching results from two places means nothing in between is interfering.
+  - Several fingerprints, separated by commas, are accepted while rotating a certificate.
+- **A CA bundle** (`NETDASH_*_CA`) when an organisation's CA signed the device's certificate.
+
+If a pinned device renews its certificate, after an upgrade or when it expires,
+polling that source stops. The page and the log then say
+"certificate changed: it is now AB:CD:...". Check the new fingerprint on the
+device and update the setting.
+
 Quick checks once it's running:
 ```bash
 python3 -m netdash pfsense     # router health, gateways, interfaces, leases, firewall log sample
@@ -183,6 +201,9 @@ Start from `deploy/netdash-site.env.example` (no modem) or `deploy/netdash.env.e
 | `NETDASH_MODEM_URL` | modem_check's own dashboard, linked from the Internet card (default: the modem_check GitHub page) |
 | `NETDASH_UNIFI_URL`, `_USER`, `_PASS`, `_SITE`, `_KIND` | UniFi controller and the View Only account (§4); `_KIND=classic` for the classic controller |
 | `NETDASH_PFSENSE_URL`, `_KEY` | pfSense REST API (§3) |
+| `NETDASH_PFSENSE_FINGERPRINT`, `NETDASH_UNIFI_FINGERPRINT` | Pin each device's certificate (SHA-256) so nothing on the network can pose as it (§5) |
+| `NETDASH_PFSENSE_CA`, `NETDASH_UNIFI_CA` | Or verify against a CA bundle, e.g. the organisation's internal CA |
+| `NETDASH_PFSENSE_TLS_VERIFY=off`, `NETDASH_UNIFI_TLS_VERIFY=off` | No certificate checking (not recommended; logged as a warning) |
 | `NETDASH_AUTH=on` | Require a login (§7) |
 | `NETDASH_SESSION_DAYS` | How long a login lasts (default 30) |
 | `NETDASH_TLS_CERT`, `NETDASH_TLS_KEY` | Serve HTTPS with this certificate and key (PEM) |
@@ -234,6 +255,7 @@ Turn on with `NETDASH_AUTH=on`. Without it, anyone who can reach the port sees e
 ### Other care
 
 - **Data sensitivity.** Client names, MAC addresses, per-device traffic and firewall logs show people's activity. Keep retention short with the `*_KEEP_DAYS` settings (§6). Don't send alerts or reports outside the organisation without approval.
+- **Pinned certificates** (§5) keep a device on the network from posing as pfSense or UniFi to collect the API key or the UniFi password.
 - **Read-only everywhere.** The UniFi account is View Only and the pfSense user is read-only, with the API in Read Only mode. netdash never changes anything on the network, and it should stay that way.
 - **Lockouts affect other people.** A locked UniFi account or a Login Protection block on a shared network may stop its administrators too. Keep the backoff in `unifi.py`, and test logins once at a time, by hand.
 - **Firewall checks worth doing while you're there:**
@@ -247,7 +269,7 @@ Turn on with `NETDASH_AUTH=on`. Without it, anyone who can reach the port sees e
 1. Settle §2, especially permission, the host and remote access.
 2. Clone the code (see the top of this guide). Write `/etc/netdash.env` from the right example (§6).
 3. UniFi View Only account. Run `python3 -m netdash unifi` once, with the env file parsed in Python.
-4. pfSense REST API (§3), then `python3 -m netdash pfsense`.
+4. pfSense REST API (§3). Pin both certificates (`python3 -m netdash fingerprint`, §5), then run `python3 -m netdash pfsense`.
 5. Set a gateway monitor IP that answers pings.
 6. Deploy (§5). On a shared network, create the HTTPS certificate and the users, and add the pfSense rule limiting who can reach the port (§7).
 7. Check the page on desktop and phone width with real data before calling it done.

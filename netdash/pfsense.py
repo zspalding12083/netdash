@@ -8,14 +8,17 @@ differenced modulo 2**32.
 Settings (/etc/netdash.env):
     NETDASH_PFSENSE_URL   e.g. https://10.0.0.1:8443
     NETDASH_PFSENSE_KEY   API key of the read-only "netdash" user
+    NETDASH_PFSENSE_FINGERPRINT / _CA / _TLS_VERIFY   certificate checking, see tlsverify.py
 """
 import datetime as dt
 import ipaddress
 import json
 import os
-import ssl
+import urllib.error
 import urllib.parse
 import urllib.request
+
+from . import tlsverify
 
 WRAP = 2 ** 32
 MONTHS = {m: i for i, m in enumerate(("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec").split(), 1)}
@@ -25,8 +28,9 @@ class PfSense:
     def __init__(self, env=os.environ):
         self.url = (env.get("NETDASH_PFSENSE_URL") or "").rstrip("/")
         self.key = env.get("NETDASH_PFSENSE_KEY")
-        # pfSense's web GUI certificate is self-signed.
-        self.ctx = ssl._create_unverified_context()
+        # pfSense's web GUI certificate is usually self-signed: pin it (tlsverify.py).
+        https, self.tls_mode = tlsverify.https_handler(env, "PFSENSE", "pfSense")
+        self.opener = urllib.request.build_opener(https)
 
     @property
     def enabled(self) -> bool:
@@ -36,7 +40,13 @@ class PfSense:
         """GET /api/v2/<path> -> the "data" field."""
         url = f"{self.url}/api/v2/{path}" + (f"?{urllib.parse.urlencode(query)}" if query else "")
         req = urllib.request.Request(url, headers={"X-API-Key": self.key, "Accept": "application/json"})
-        with urllib.request.urlopen(req, context=self.ctx, timeout=timeout) as r:
+        try:
+            r = self.opener.open(req, timeout=timeout)
+        except urllib.error.HTTPError:
+            raise
+        except urllib.error.URLError as e:
+            raise tlsverify.explain(e, "PFSENSE") from e
+        with r:
             return json.load(r)["data"]
 
     def interfaces(self):
