@@ -8,6 +8,9 @@ Site settings (/etc/netdash.env):
                          styles, so it can override the colour tokens), logo.svg or logo.png
                          (shown in the header; brand.css should give the header a background
                          it reads on), favicon.ico. Unset: the plain look
+    NETDASH_MODEM_DASHBOARD  modem_check's own dashboard on this box, shown at /modem/
+                         behind netdash's login (default http://127.0.0.1:8520 when the
+                         modem database is here; "none" = don't)
 Logins: see auth.py. Modem (home only): see modem.py.
 """
 import datetime as dt
@@ -16,12 +19,15 @@ import http.server
 import json
 import logging
 import os
+import re
+import socket
 import ssl
 import sys
 import threading
 import time
 import urllib.error
 import urllib.parse
+import urllib.request
 
 from . import auth, ident, modem, pfsense, unifi
 
@@ -53,11 +59,13 @@ class App:
     def __init__(self, store, wifi=None, modem_db=None, router=None, env=os.environ):
         self.store = store
         self.site = env.get("NETDASH_SITE_NAME") or "Home network"
-        self.modem_url = env.get("NETDASH_MODEM_URL") or modem.PROJECT_URL
         self.brand = env.get("NETDASH_BRAND_DIR") or None
         self.auth = auth.Auth(store, env)
         self.unifi = wifi if wifi is not None else unifi.UniFi()
         self.modem = modem_db if modem_db is not None else modem.ModemDB()
+        dash = env.get("NETDASH_MODEM_DASHBOARD") or ("http://127.0.0.1:8520" if self.modem.enabled else "")
+        self.modem_dash = "" if dash.lower() == "none" else dash.rstrip("/")
+        self.modem_url = env.get("NETDASH_MODEM_URL") or ("/modem/" if self.modem_dash else modem.PROJECT_URL)
         self.pf = router if router is not None else pfsense.PfSense()
         self.wifi = {"ts": None, "clients": [], "devices": [], "error": None}
         self.router = {"ts": None, "interfaces": [], "rates": {}, "gateways": [], "system": None,
@@ -290,6 +298,35 @@ class App:
         return None
 
 
+MODEM_PATHS = {"/modem/": "/", "/modem/pdf": "/pdf"}
+_ROOT_LINK = re.compile(rb'(href|action|src)="/(?!/)')
+
+
+def modem_page(base, path, query, timeout=180):
+    """(status, headers, body) for /modem/... fetched from modem_check's dashboard, with
+    its root-relative links moved under /modem/ and a link back to netdash added."""
+    url = base + MODEM_PATHS[path] + (f"?{query}" if query else "")
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            status, ctype, body = r.status, r.headers.get("Content-Type", ""), r.read()
+            disp = r.headers.get("Content-Disposition")
+    except urllib.error.HTTPError as e:
+        status, ctype, body, disp = e.code, e.headers.get("Content-Type", "text/plain"), e.read(), None
+    except (urllib.error.URLError, OSError) as e:
+        reason = getattr(e, "reason", e)
+        msg = (f"modem_check's dashboard didn't answer at {base} ({reason}).\n"
+               "Is it running? systemctl --user status modem-dashboard (as the user modem_check runs as)\n")
+        return 502, [("Content-Type", "text/plain; charset=utf-8")], msg.encode()
+    if ctype.startswith("text/html"):
+        body = _ROOT_LINK.sub(rb'\1="/modem/', body)
+        body = body.replace(b"<body>", b'<body>\n<p style="margin:8px 0;font-size:13px">'
+                            b'<a href="/">&larr; back to the network dashboard</a></p>', 1)
+    headers = [("Content-Type", ctype or "application/octet-stream"), ("Cache-Control", "no-store")]
+    if disp:
+        headers.append(("Content-Disposition", disp))
+    return status, headers, body
+
+
 def usage_deltas(prev, clients):
     """{mac: (down, up)} bytes since the previous poll. UniFi's counters restart when a
     client reconnects; a counter that went down is taken as new since the restart."""
@@ -396,6 +433,11 @@ def make_handler(app: App, tls: bool = False):
                 if not app.auth.enabled or user:
                     return self._redirect("/")
                 url = url._replace(path="/login.html")
+            if url.path == "/modem" and app.modem_dash:
+                return self._redirect("/modem/")
+            if url.path in MODEM_PATHS and app.modem_dash:
+                status, headers, body = modem_page(app.modem_dash, url.path, url.query)
+                return self._send(status, body, headers=headers)
             if url.path.startswith("/api/"):
                 query = dict(urllib.parse.parse_qsl(url.query))
                 try:
@@ -432,6 +474,35 @@ def make_handler(app: App, tls: bool = False):
 
 class Server(http.server.ThreadingHTTPServer):
     daemon_threads = True
+    tls = None                    # an ssl.SSLContext: serve HTTPS, and redirect plain HTTP to it
+
+    def finish_request(self, request, client_address):
+        """In the request's thread: TLS handshake, so one stalled client can't block accept().
+        A plain-HTTP request (an old http:// bookmark) gets a redirect to https:// instead of
+        an empty reply."""
+        if self.tls is not None:
+            request.settimeout(10)
+            first = request.recv(1, socket.MSG_PEEK)
+            if not first:
+                return
+            if first != b"\x16":                     # not a TLS ClientHello
+                return self.redirect_to_https(request)
+            request = self.tls.wrap_socket(request, server_side=True)
+            request.settimeout(None)
+        super().finish_request(request, client_address)
+
+    def redirect_to_https(self, sock):
+        head = sock.recv(8192).decode("latin-1", "replace")
+        lines = head.split("\r\n")
+        parts = lines[0].split(" ")
+        path = parts[1] if len(parts) > 1 and parts[1].startswith("/") else "/"
+        host = next((l.split(":", 1)[1].strip() for l in lines[1:] if l.lower().startswith("host:")), "")
+        if not host or any(c in host for c in "\r\n /\\@"):
+            host = f"{socket.gethostname()}:{self.server_address[1]}"
+        body = b"This dashboard uses HTTPS.\n"
+        sock.sendall((f"HTTP/1.1 301 Moved Permanently\r\nLocation: https://{host}{path}\r\n"
+                      f"Content-Type: text/plain\r\nContent-Length: {len(body)}\r\nConnection: close\r\n\r\n")
+                     .encode("latin-1", "replace") + body)
 
     def handle_error(self, request, client_address):
         """One log line instead of a traceback for broken connections, e.g. plain HTTP
@@ -469,8 +540,7 @@ def serve(store, bind, port, env=os.environ):
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             ctx.minimum_version = ssl.TLSVersion.TLSv1_2
             ctx.load_cert_chain(cert, key)
-            # handshake in the request's thread, so one stalled client can't block accept()
-            httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True, do_handshake_on_connect=False)
+            httpd.tls = ctx
     except OSError as e:
         raise SystemExit(f"can't listen on port {port}: {e.strerror}. "
                          f"Find what's using it with `sudo ss -ltnp | grep :{port}` or pick another with --port.")

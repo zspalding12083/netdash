@@ -198,7 +198,8 @@ Start from `deploy/netdash-site.env.example` (no modem) or `deploy/netdash.env.e
 |---|---|
 | `NETDASH_SITE_NAME` | Page title, heading and sign-in page, e.g. `Branch Office` (default `Home network`) |
 | `NETDASH_MODEM_DB=none` | No modem: Internet health comes from pfSense's gateways and the modem parts are hidden. Leaving it unset also works when `~/modem_check/data/modem.db` doesn't exist |
-| `NETDASH_MODEM_URL` | modem_check's own dashboard, linked from the Internet card (default: the modem_check GitHub page) |
+| `NETDASH_MODEM_DASHBOARD` | modem_check's own dashboard on the same box, shown at `/modem/` behind the login (default `http://127.0.0.1:8520` when the modem database exists; `none` turns it off) |
+| `NETDASH_MODEM_URL` | where the Internet card's modem_check link goes (default `/modem/`, or the modem_check GitHub page when there's no modem dashboard) |
 | `NETDASH_UNIFI_URL`, `_USER`, `_PASS`, `_SITE`, `_KIND` | UniFi controller and the View Only account (§4); `_KIND=classic` for the classic controller |
 | `NETDASH_PFSENSE_URL`, `_KEY` | pfSense REST API (§3) |
 | `NETDASH_PFSENSE_FINGERPRINT`, `NETDASH_UNIFI_FINGERPRINT` | Pin each device's certificate (SHA-256) so nothing on the network can pose as it (§5) |

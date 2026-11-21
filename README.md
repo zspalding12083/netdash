@@ -106,7 +106,7 @@ fine for a few known users. See section 7 of the guide.
 
 ## Related
 
-- **[modem_check](https://github.com/zspalding12083/modem_check)**: monitors an ARRIS SB8200 cable modem and the connection, with outage reports for the ISP. netdash reads its database, read-only, and links to its dashboard (`NETDASH_MODEM_URL`).
+- **[modem_check](https://github.com/zspalding12083/modem_check)**: monitors an ARRIS SB8200 cable modem and the connection, with outage reports for the ISP. netdash reads its database, read-only, and shows its full report and PDF at `/modem/`, behind netdash's login (`NETDASH_MODEM_DASHBOARD`).
 
 ## License
 

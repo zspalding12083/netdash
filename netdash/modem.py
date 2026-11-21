@@ -7,7 +7,8 @@ event log isn't filled with logins.
 
     NETDASH_MODEM_DB   default ~/modem_check/data/modem.db (of the user netdash runs as,
                        where modem_check's README installs it); "none" = no modem.
-    NETDASH_MODEM_URL  modem_check's own dashboard, linked from the page (e.g. http://pi:8520/)
+    NETDASH_MODEM_URL  where the page's modem_check link goes; default /modem/, modem_check's
+                       dashboard served by netdash behind its login (NETDASH_MODEM_DASHBOARD, server.py)
                        Sites without a modem need nothing: the default path won't exist there.
 """
 import datetime as dt
