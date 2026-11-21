@@ -1,3 +1,10 @@
+<p align="left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/zs-logo-horizontal-dark-bg.svg">
+    <img alt="ZS Tech | Zachary Spalding Technology Services" src="assets/brand/zs-logo-horizontal-light-bg.svg" height="64">
+  </picture>
+</p>
+
 # netdash
 
 A single-page network dashboard for small sites that run **pfSense** and **UniFi**:
@@ -7,6 +14,7 @@ monitored by [modem_check](https://github.com/zspalding12083/modem_check), netda
 also shows the modem's signal, speed tests and outages.
 
 - **Read-only.** It uses a View Only UniFi account and a read-only pfSense API key, and never changes anything on the network.
+- **Checks who it's talking to.** pfSense's and UniFi's certificates are pinned (or verified against a CA), so a device on the network can't pose as either to collect the API key or password.
 - **Standard library only.** Python 3.10+, no pip packages; one process, SQLite for history.
 - **Built for a handful of viewers.** Optional logins (hashed passwords, lockout after repeated failures) and HTTPS.
 
@@ -20,6 +28,26 @@ also shows the modem's signal, speed tests and outages.
 
 The page has light and dark themes and works on phones. Each site can add its own
 logo and colours.
+
+## Screenshots
+
+The screenshots use made-up sample data: the device names, addresses and networks are not a real site's.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png">
+  <img alt="netdash internet panel: online status, speed test, ping, modem state and a day of history charts" src="docs/screenshots/overview-light.png">
+</picture>
+
+<details>
+<summary>Whole page (router, traffic, top devices, firewall blocks, Wi-Fi) and phone view</summary>
+
+<img alt="The whole netdash page" src="docs/screenshots/full-page.png">
+
+<img alt="netdash on a phone" src="docs/screenshots/phone.png" width="390">
+
+</details>
+
+`docs/social-preview.png` is the image GitHub shows when the repository link is shared.
 
 ## Requirements
 
@@ -47,6 +75,9 @@ python3 -m unittest discover -s tests -t .          # optional: run the tests
 # settings and secrets (owned by the service user, chmod 600)
 sudo cp deploy/netdash-site.env.example /etc/netdash.env   # or netdash.env.example with modem_check
 sudo editor /etc/netdash.env
+
+# pin the self-signed certificates of pfSense and UniFi (check them on the devices first)
+python3 -m netdash fingerprint      # add the printed lines to /etc/netdash.env
 
 # check the connections
 python3 -m netdash pfsense
@@ -79,4 +110,9 @@ fine for a few known users. See section 7 of the guide.
 
 ## License
 
-MIT; see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE). The ZS Tech mark files in `assets/brand/` are not covered by the MIT
+License: they are all rights reserved and may be used only to identify ZS Tech (Zachary Spalding Technology Services) and its projects.
+
+---
+
+<img src="assets/brand/zs-mark.svg" alt="" height="20" align="top"> A **ZS Tech** project · Zachary Spalding Technology Services · [zspalding12083](https://github.com/zspalding12083). Systems · Networks · Cloud · Open source.
